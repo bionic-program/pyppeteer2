@@ -202,7 +202,7 @@ class Page(AsyncIOEventEmitter):
         if not timeout:
             timeout = self._timeoutSettings.timeout
 
-        promise = self._loop.create_future()
+        promise = self._client.loop.create_future()
         callback = promise.result
         self._fileChooserInterceptors.add(callback())
         try:
