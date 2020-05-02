@@ -1,36 +1,32 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-"""
-Multimap module.
+"""Multimap module."""
 
-puppeteer equivalent: lib/Multimap.js
-"""
-
-
-from typing import Any, Dict, List, Optional
+from collections import OrderedDict
+from typing import Any, List, Optional
 
 
-class Multimap:
+class Multimap(object):
     """Multimap class."""
 
     def __init__(self) -> None:
         """Make new multimap."""
         # maybe defaultdict(set) is better
-        self._map: Dict[Optional[str], List[Any]] = {}
+        self._map: OrderedDict[Optional[str], List[Any]] = OrderedDict()
 
     def set(self, key: Optional[str], value: Any) -> None:
         """Set value."""
         _set = self._map.get(key)
         if not _set:
-            _set = []
+            _set = list()
             self._map[key] = _set
         if value not in _set:
             _set.append(value)
 
     def get(self, key: Optional[str]) -> List[Any]:
         """Get values."""
-        return self._map.get(key, [])
+        return self._map.get(key, list())
 
     def has(self, key: Optional[str]) -> bool:
         """Check key is in this map."""
@@ -38,7 +34,7 @@ class Multimap:
 
     def hasValue(self, key: Optional[str], value: Any) -> bool:
         """Check value is in this map."""
-        _set = self._map.get(key, [])
+        _set = self._map.get(key, list())
         return value in _set
 
     def size(self) -> int:
@@ -72,7 +68,7 @@ class Multimap:
 
     def valuesArray(self) -> List[Any]:
         """Get all values as list."""
-        result: List[Any] = []
+        result: List[Any] = list()
         for values in self._map.values():
             result.extend(values)
         return result
