@@ -203,12 +203,15 @@ class Page(AsyncIOEventEmitter):
             timeout = self._timeoutSettings.timeout
 
         promise = self._client.loop.create_future()
-        callback = promise.result
-        self._fileChooserInterceptors.add(callback())
+
+        def promiseCallback(x: FileChooser) -> None:
+            promise.set_result(x)
+
+        self._fileChooserInterceptors.add(promiseCallback)
         try:
             return await asyncio.wait_for(promise, timeout=timeout)
         except Exception as e:
-            self._fileChooserInterceptors.remove(callback())
+            self._fileChooserInterceptors.remove(promiseCallback)
             raise e
 
     async def setGeolocation(self, longitude: float, latitude: float, accuracy: float = 0) -> None:
