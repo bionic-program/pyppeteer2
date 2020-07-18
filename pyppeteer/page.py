@@ -1750,9 +1750,7 @@ function addPageBinding(bindingName) {
     async def waitForFileChooser(self, timeout: float = None):
         if not self._fileChooserInterceptors:
             await self._client.send('Page.setInterceptFileChooserDialog', {'enabled': True})
-        if not timeout:
-            timeout = self._timeoutSettings.timeout
-
+     
         promise = self._loop.create_future()
         callback = promise.result
         self._fileChooserInterceptors.add(callback())
