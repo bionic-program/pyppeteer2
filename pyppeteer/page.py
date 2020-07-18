@@ -1747,7 +1747,7 @@ function addPageBinding(bindingName) {
         return frame.waitForFunction(pageFunction, options, *args, **kwargs)
 
 
-    async def waitForFileChooser(self, options: dict = None,*args: str, **kwargs: Any) -> Awaitable:
+    async def waitForFileChooser(self, timeout: float = None):
         if not self._fileChooserInterceptors:
             await self._client.send('Page.setInterceptFileChooserDialog', {'enabled': True})
         if not timeout:
