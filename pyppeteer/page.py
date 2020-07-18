@@ -1747,18 +1747,26 @@ function addPageBinding(bindingName) {
         return frame.waitForFunction(pageFunction, options, *args, **kwargs)
 
 
-    async def waitForFileChooser(self, timeout: float = None):
-        if not self._fileChooserInterceptors:
-            await self._client.send('Page.setInterceptFileChooserDialog', {'enabled': True})
-     
-        promise = self._loop.create_future()
-        callback = promise.result
-        self._fileChooserInterceptors.add(callback())
-        try:
-            return await asyncio.wait_for(promise, timeout=timeout)
-        except Exception as e:
-            self._fileChooserInterceptors.remove(callback())
-            raise e
+    async def waitForFileChooser(self, options: dict = None,*args: str, **kwargs: Any) -> Awaitable:
+        if self._fileChooserInterceptionIsDisabled:
+            raise PageError('File chooser handling does not work with multiple connections to the same page')
+        options = merge_dict(options, kwargs)
+        timeout = options.get('timeout', 30000)
+        promise = self._client._loop.create_future()
+
+        def promiseCallback(x: FileChooser) -> None:
+            promise.set_result(x)
+
+        self._fileChooserInterceptors.add(promiseCallback)
+
+        result,exception = await helper.waitWithTimeout(promise, 'waiting for file chooser',timeout,self._client._loop)
+        for e in exception:
+            if not e.done():
+                for r in result:
+                    return r.result()
+            else:
+                self._fileChooserInterceptors.remove(promiseCallback)
+                raise e.exception()
 
 
 
