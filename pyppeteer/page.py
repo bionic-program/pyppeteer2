@@ -256,6 +256,7 @@ class Page(EventEmitter):
         if not self._fileChooserInterceptors:
             return
         frame = self._frameManager.frame(event['frameId'])
+        #test
         context = await self.mainFrame.executionContext()
         if context is None:
             raise BrowserError(f'Frame {frame} execution\'s context is not defined')
