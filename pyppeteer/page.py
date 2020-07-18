@@ -11,8 +11,7 @@ import math
 import mimetypes
 import os
 from types import SimpleNamespace
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Union
-from typing import TYPE_CHECKING
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Union, Sequence, TYPE_CHECKING
 
 from pyee import EventEmitter
 

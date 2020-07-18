@@ -7,7 +7,7 @@ import asyncio
 from collections import OrderedDict
 import logging
 from types import SimpleNamespace
-from typing import Any, Awaitable, Dict, Generator, List, Optional, Set, Union, Sequence
+from typing import Any, Awaitable, Dict, Generator, List, Optional, Set, Union
 
 from pyee import EventEmitter
 
