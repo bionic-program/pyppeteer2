@@ -257,6 +257,8 @@ class Page(EventEmitter):
             return
         frame = self._frameManager.frame(event['frameId'])
         #test
+        if not self.mainFrame:
+            raise PageError('no main frame.')
         context = await self.mainFrame.executionContext()
         if context is None:
             raise BrowserError(f'Frame {frame} execution\'s context is not defined')
