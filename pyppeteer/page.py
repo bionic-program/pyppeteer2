@@ -11,8 +11,8 @@ import math
 import mimetypes
 import os
 from types import SimpleNamespace
-from pathlib import Path
-from typing import Any, Awaitable, Callable, Dict, List, Optional, Union, Sequence, TYPE_CHECKING
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Union
+from typing import TYPE_CHECKING
 
 from pyee import EventEmitter
 
@@ -252,23 +252,22 @@ class Page(EventEmitter):
         if source != 'worker':
             self.emit(Page.Events.Console, ConsoleMessage(level, text))
 
-    async def _onFileChooser(self, event: Dict) -> None:
-        if not self._fileChooserInterceptors:
+    def _onFileChooser(self, event: Dict) -> None:
+        
+        if(len(self._fileChooserInterceptors) is None):
+            try:
+                self._client.send('Page.handleFileChooser', {
+                    'action': 'fallback',
+                })
+            except Exception as e:
+                helper.debugError(logger, e)
             return
-        frame = self._frameManager.frame(event['frameId'])
-        #test
-        if not self.mainFrame:
-            raise PageError('no main frame.')
-        context = await self.mainFrame.executionContext()
-        if context is None:
-            raise BrowserError(f'Frame {frame} execution\'s context is not defined')
 
-        element = await context._adoptBackednNodeId(event['backendNodeId'])
-        interceptors = copy(self._fileChooserInterceptors)
+        interceptors = list(self._fileChooserInterceptors)
         self._fileChooserInterceptors.clear()
-        fileChooser = FileChooser(self._client, element, event)
+        fileChooser = FileChooser(self._client,event)
         for interceptor in interceptors:
-            interceptor.call(None, fileChooser)
+            interceptor(fileChooser)
 
 
 
@@ -1769,7 +1768,6 @@ function addPageBinding(bindingName) {
                 raise e.exception()
 
 
-
 supportedMetrics = (
     'Timestamp',
     'Documents',
@@ -1851,32 +1849,42 @@ class ConsoleMessage(object):
         """Return list of args (JSHandle) of this message."""
         return self._args
 
-class FileChooser:
+class FileChooser(object):
     """File Chooser class.
 
     File Chooser objects are dispatched by page via the ``filechooser`` event.
     """
 
-    def __init__(self, client: CDPSession, element: ElementHandle, event: Dict) -> None:
+    def __init__(self, client: CDPSession, event: Dict) -> None:
         self._client = client
-        self._element = element
         self._multiple = event['mode'] != 'selectSingle'
         self._handled = False
 
     @property
-    def isMultiple(self) -> bool:
-        return self._multiple
+    def isMultiple(self) -> None:
+        """Return type of this message."""
+        return self.isMultiple
 
-    async def accept(self, filePaths: Sequence[Union[Path, str]]) -> None:
+    async def accept(self, *filePaths: str) -> None:
         if self._handled:
-            raise ValueError('Cannot accept FileChooser which is already handled!')
+            raise PageError('Cannot accept FileChooser which is already handled!')
         self._handled = True
-        await self._element.uploadFile(*filePaths)
+        
+        files = []
+        for filePath in filePaths:
+            files.append(os.path.abspath(filePath))
+        await self._client.send('Page.handleFileChooser', {
+            'action': 'accept',
+            'files': files
+        })
 
     async def cancel(self) -> None:
         if self._handled:
-            raise ValueError('Cannot cancel Filechooser which is already handled!')
+            raise PageError('Cannot cancel FileChooser which is already handled!')
         self._handled = True
+        await self._client.send('Page.handleFileChooser', {
+            'action': 'cancel'
+        })
 
 
 async def craete(*args: Any, **kwargs: Any) -> Page:
