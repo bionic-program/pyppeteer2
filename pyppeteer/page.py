@@ -253,21 +253,19 @@ class Page(EventEmitter):
             self.emit(Page.Events.Console, ConsoleMessage(level, text))
 
     def _onFileChooser(self, event: Dict) -> None:
-        
-        if(len(self._fileChooserInterceptors) is None):
-            try:
-                self._client.send('Page.handleFileChooser', {
-                    'action': 'fallback',
-                })
-            except Exception as e:
-                helper.debugError(logger, e)
+        if not self._fileChooserInterceptors:
             return
+        frame = self._frameManager.frame(event['frameId'])
+        context = await self.mainFrame.executionContext()
+        if context is None:
+            raise BrowserError(f'Frame {frame} execution\'s context is not defined')
 
-        interceptors = list(self._fileChooserInterceptors)
+        element = await context._adoptBackednNodeId(event['backendNodeId'])
+        interceptors = copy(self._fileChooserInterceptors)
         self._fileChooserInterceptors.clear()
-        fileChooser = FileChooser(self._client,event)
+        fileChooser = FileChooser(self._client, element, event)
         for interceptor in interceptors:
-            interceptor(fileChooser)
+            interceptor.call(None, fileChooser)
 
 
 
@@ -1747,25 +1745,20 @@ function addPageBinding(bindingName) {
 
 
     async def waitForFileChooser(self, options: dict = None,*args: str, **kwargs: Any) -> Awaitable:
-        if self._fileChooserInterceptionIsDisabled:
-            raise PageError('File chooser handling does not work with multiple connections to the same page')
-        options = merge_dict(options, kwargs)
-        timeout = options.get('timeout', 30000)
-        promise = self._client._loop.create_future()
+        if not self._fileChooserInterceptors:
+            await self._client.send('Page.setInterceptFileChooserDialog', {'enabled': True})
+        if not timeout:
+            timeout = self._timeoutSettings.timeout
 
-        def promiseCallback(x: FileChooser) -> None:
-            promise.set_result(x)
+        promise = self._loop.create_future()
+        callback = promise.result
+        self._fileChooserInterceptors.add(callback())
+        try:
+            return await asyncio.wait_for(promise, timeout=timeout)
+        except Exception as e:
+            self._fileChooserInterceptors.remove(callback())
+            raise e
 
-        self._fileChooserInterceptors.add(promiseCallback)
-
-        result,exception = await helper.waitWithTimeout(promise, 'waiting for file chooser',timeout,self._client._loop)
-        for e in exception:
-            if not e.done():
-                for r in result:
-                    return r.result()
-            else:
-                self._fileChooserInterceptors.remove(promiseCallback)
-                raise e.exception()
 
 
 supportedMetrics = (
@@ -1849,42 +1842,32 @@ class ConsoleMessage(object):
         """Return list of args (JSHandle) of this message."""
         return self._args
 
-class FileChooser(object):
+class FileChooser:
     """File Chooser class.
 
     File Chooser objects are dispatched by page via the ``filechooser`` event.
     """
 
-    def __init__(self, client: CDPSession, event: Dict) -> None:
+    def __init__(self, client: CDPSession, element: ElementHandle, event: Dict) -> None:
         self._client = client
+        self._element = element
         self._multiple = event['mode'] != 'selectSingle'
         self._handled = False
 
     @property
-    def isMultiple(self) -> None:
-        """Return type of this message."""
-        return self.isMultiple
+    def isMultiple(self) -> bool:
+        return self._multiple
 
-    async def accept(self, *filePaths: str) -> None:
+    async def accept(self, filePaths: Sequence[Union[Path, str]]) -> None:
         if self._handled:
-            raise PageError('Cannot accept FileChooser which is already handled!')
+            raise ValueError('Cannot accept FileChooser which is already handled!')
         self._handled = True
-        
-        files = []
-        for filePath in filePaths:
-            files.append(os.path.abspath(filePath))
-        await self._client.send('Page.handleFileChooser', {
-            'action': 'accept',
-            'files': files
-        })
+        await self._element.uploadFile(*filePaths)
 
     async def cancel(self) -> None:
         if self._handled:
-            raise PageError('Cannot cancel FileChooser which is already handled!')
+            raise ValueError('Cannot cancel Filechooser which is already handled!')
         self._handled = True
-        await self._client.send('Page.handleFileChooser', {
-            'action': 'cancel'
-        })
 
 
 async def craete(*args: Any, **kwargs: Any) -> Page:
