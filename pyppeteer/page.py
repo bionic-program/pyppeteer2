@@ -252,7 +252,7 @@ class Page(EventEmitter):
         if source != 'worker':
             self.emit(Page.Events.Console, ConsoleMessage(level, text))
 
-    def _onFileChooser(self, event: Dict) -> None:
+    async def _onFileChooser(self, event: Dict) -> None:
         if not self._fileChooserInterceptors:
             return
         frame = self._frameManager.frame(event['frameId'])
