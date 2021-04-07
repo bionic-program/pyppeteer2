@@ -310,8 +310,8 @@ class ElementHandle(JSHandle):
 
         original_viewport = copy.deepcopy(self._page.viewport)
 
-        if (boundingBox['width'] > original_viewport['width'] or
-                boundingBox['height'] > original_viewport['height']):
+        if (original_viewport is not None and (boundingBox['width'] > original_viewport['width'] or
+                boundingBox['height'] > original_viewport['height'])):
             newViewport = {
                 'width': max(
                     original_viewport['width'],
